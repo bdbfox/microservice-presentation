@@ -21,6 +21,22 @@
       .col { flex: 1; margin: 10px; }
       .image img { width: 100%; height: auto; }
       .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+
+      /* Two-column layout */
+      .left-column {
+        color: #777;
+        width: 15%;
+        height: 92%;
+        float: left;
+      }
+        .left-column h2:last-of-type, .left-column h3:last-child {
+          color: #000;
+        }
+      .right-column {
+        width: 75%;
+        float: right;
+        padding-top: 0;
+      }
     </style>
   </head>
   <body>
@@ -77,6 +93,7 @@ class: center, middle
 
 
 ---
+name: goals1
 ### Goals
 
 #### Content/Data management (CMS) needs to be based on the same services as the client apps.
@@ -89,6 +106,11 @@ class: center, middle
  - Ability to override a single field on any platform but still inherit other fields.
 
 ---
+
+Demo CMS
+
+---
+name: goals2
 ### Goals
 
 #### Documentation needs to be simple and based on code.
@@ -101,6 +123,7 @@ class: center, middle
  - Products like apigee127 take similar but opposite approach.
 
 ---
+name: models
 ##### Sample model:
 ```js
 const SeriesModel = new Schema({
@@ -143,6 +166,7 @@ class SeriesPublishedTranslation extends Translation {
 }
 ```
 ---
+name: swagger
 ##### Generates swagger
 ```json
 {
@@ -188,6 +212,7 @@ class SeriesPublishedTranslation extends Translation {
 }
 ```
 ---
+name: response
 ##### Generates response
 ```json
 {
@@ -218,10 +243,121 @@ class SeriesPublishedTranslation extends Translation {
 }
 ```
 ---
+name: goals3
 ### Goals
 
 #### Easy for developers to work with, replicate, and deploy
- - 
+ - Need to be able to run the entire environment and all services locally.
+
+ - Desire to use the same tools and tooling that we work with everyday, whether you are developing a service, deploying code, or
+ changing the infrastructure.
+
+ - Need to be able to stamp out multiple environments or alternate builds with minimal effort.
+
+ - Reuse code when possible, but not at the expense of keeping separation of services.
+
+---
+name: docker
+.left-column[.image[![Fox](images/docker-logo.png)]]
+.right-column[
+### Docker
+  - Provides us with consistent deployment artifacts.
+
+  - Leverage a library of already built docker images. No need to worry about how to install consul, redis, elasticsearch, etc...
+
+  - Easily share amongst developers the configuration.
+
+  - Docker compose allows us to simulate the entire environment more easily and consistently.
+
+  - Really easy to utilize environment variables as switches.
+
+  - Utilizes our resources more effectively. Run multiple microservices on a single instance.
+
+  - With terraform we can spin up an entire stack of microservices very quickly for one off tests or separate tests.
+  (more on this later)
+]
+---
+name:
+##### Sample docker-compose.yml
+```yml
+version: "2"
+services:
+  service1:
+    environment:
+      SERVICE_NAME: "service1"
+      SERVICE_8014_NAME: "service1-draft"
+      SERVICE_8015_NAME: "service1-published"
+      SERVICE_TAGS: "service1-path1,service1-path2"
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    depends_on:
+      - es
+      - mongo
+  service2:
+    environment:
+      SERVICE_NAME: "service2"
+      SERVICE_8012_NAME: "service2-draft"
+      SERVICE_8013_NAME: "service2-published"
+      SERVICE_TAGS: "service2-path1,service2-path2"
+    ports:
+      - "8002:8002"
+      - "8003:8003"
+    depends_on:
+      - es
+      - mongo
+  mongo:
+    ...
+  es:
+    ...
+```
+---
+##### Sample docker-compose-override.yml
+```yml
+version: "2"
+services:
+  service1:
+    extends:
+      file: common.yml
+      service: microservice
+    ports:
+      # debug ports
+      - "7014:7000"
+      - "7015:7001"
+    volumes:
+      - ./packages/service:/opt/app/service
+```
+##### Sample common.yml
+```yml
+version: "2"
+services:
+# shared microservices definitions
+  microservice:
+    image: service:local
+    environment:
+      NODE_ENV: "local"
+    volumes:
+      - ./packages/shared-package:/opt/app/shared-package
+    mem_limit: 512m
+```
+---
+name: lambda
+### Why not use Lambda?
+
+ - It is the future.
+
+ - We still like to have visibility and full control of the application.
+
+ - All of our code is actually built to work as a controller or as a handler function with Lambda so we can switch when ready.
+
+ - When we started the local development and tooling wasn't quite ready.
+
+---
+
+## TODO
+
+- create an architecture diagram
+- show how the different services are used (who consumes them)
 
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
