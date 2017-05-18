@@ -17,11 +17,14 @@
         -webkit-margin-after: -0.8em;
       }
       .remark-code { font-size: 14px; }
-      .row { display: flex; align-items: center; }
+      .small { font-size: 12px; }
+      .large .remark-code { font-size: 18px; }
+      .row { display: flex; align-items: center; width: 70%; margin: auto; }
       .col { flex: 1; margin: 10px; }
       .image img { width: 100%; height: auto; }
       .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
 
+      .fox-image img { width: 60%; height: auto }
       /* Two-column layout */
       .left-column {
         color: #777;
@@ -29,13 +32,23 @@
         height: 92%;
         float: left;
       }
-        .left-column h2:last-of-type, .left-column h3:last-child {
-          color: #000;
-        }
+      .left-column h4:last-of-type, .left-column h4:last-child {
+        color: #000;
+      }
+
       .right-column {
         width: 75%;
         float: right;
         padding-top: 0;
+      }
+      .quote {
+        margin: auto;
+        padding: 15px 10px;
+        background-color: #eee;
+        font-style: italic;
+        text-align: center;
+        font-size: 1.2em;
+        width: 70%;
       }
     </style>
   </head>
@@ -44,11 +57,13 @@
 
 class: center, middle
 
-.image[
+.fox-image[
 ![Fox DCG](images/fox-dcg-logo-updated.png)
 ]
 
 # Microservices and Docker
+
+#### Brian DeBoer
 .row[
 .col[.image[
 ![Fox](images/docker-logo.png)
@@ -93,6 +108,21 @@ class: center, middle
 
 
 ---
+class: center, middle
+## docker !== microservices
+#### Docker is a piece of our microservice puzzle
+---
+name: goals0
+### Goals
+
+#### Microservices have to follow a set of rules and structures to be succesful
+- Microservices have to know how to communicate with one another. Having a standard API format is crucial.
+
+- Microservices have to know how to find each other.
+
+- Have to be aware that more they may have more than one consumer.
+
+---
 name: goals1
 ### Goals
 
@@ -105,10 +135,9 @@ name: goals1
 
  - Ability to override a single field on any platform but still inherit other fields.
 
+ - Need to have different layers of APIs. General apis and BFF (Backends for Frontends) apis.
 ---
-
-Demo CMS
-
+## TODO: insert diagram here
 ---
 name: goals2
 ### Goals
@@ -258,16 +287,16 @@ name: goals3
 
 ---
 name: docker
-.left-column[.image[![Fox](images/docker-logo.png)]]
+.left-column[.image[![Docker](images/docker-logo.png)]]
 .right-column[
 ### Docker
   - Provides us with consistent deployment artifacts.
 
   - Leverage a library of already built docker images. No need to worry about how to install consul, redis, elasticsearch, etc...
 
-  - Easily share amongst developers the configuration.
+  - Easily share configuration amongst developers.
 
-  - Docker compose allows us to simulate the entire environment more easily and consistently.
+  - Docker compose allows us to simulate the entire environment.
 
   - Really easy to utilize environment variables as switches.
 
@@ -277,7 +306,7 @@ name: docker
   (more on this later)
 ]
 ---
-name:
+name: sample-docker
 ##### Sample docker-compose.yml
 ```yml
 version: "2"
@@ -307,11 +336,19 @@ services:
       - es
       - mongo
   mongo:
-    ...
+    build:
+      context: ./docker/mongo
+      dockerfile: Dockerfile
+    image: mongo:3.4
+    volumes:
+      - ./docker/mongo/data:/data/db
+    ports:
+      - "27017:27017"
   es:
     ...
 ```
 ---
+name: more-docker-samples
 ##### Sample docker-compose-override.yml
 ```yml
 version: "2"
@@ -353,17 +390,158 @@ name: lambda
  - When we started the local development and tooling wasn't quite ready.
 
 ---
+name: lerna-pros
+.left-column[.image[![Lerna](images/lerna-logo.png)]
+#### What is it?
+]
+.right-column[
+### Lerna and monorepos
+#### What is a monorepo?
+- A large _monolithic_ repository, aka monorepo.
 
+- A repository that contains more than one project. In our case, all of our microservices and relevant files.
+
+
+]
+---
+name: lerna-why
+.left-column[.image[![Lerna](images/lerna-logo.png)]
+#### What is it?
+#### Why?
+]
+.right-column[
+### Lerna and monorepos
+#### Why would you do _that_?
+ - Keeps dependencies together which simplifies managing the code.
+
+ - Better sharing and knowledge of components.
+
+ - Challenging to enforce standardization and tests of code across repositories. For example, eslintrc.
+
+ - Code reviews happening across multiple repos and devs don't always look in more than one place.
+
+ - PR's across multiple repositories results in chicken and egg scenarios.
+
+ - Branching or new versions of code much easier to implement.
+
+ - Intergration and e2e tests that leverage multiple services are much easier
+
+ - Git submodules are complex and error-prone
+]
+---
+name: lerna-cons
+.left-column[.image[![Lerna](images/lerna-logo.png)]
+#### What is it?
+#### Why?
+#### Cons
+]
+.right-column[
+### Lerna and monorepos
+#### What are the challenges of using a monorepo?
+ - Most CI and CD tools are going to require some customization to streamline the build.
+
+ - We want our docker containers to be small, so we can't stick the entire codebase into the image. That requires
+ custom scripting to accomplish.
+
+ - If you do that, then some code duplication might be necessary, but it's still possible to keep it limited.
+]
+---
+name: lerna
+### What is Lerna?
+.quote[
+Lerna is a tool that optimizes the workflow around managing multi-package repositories with git and npm.
+]
+#### Features:
+- provides a structure to monorepos
+```
+lerna.json
+package.json
+packages/
+ - shared_package/
+ -   node_modules
+ -   package.json
+ - service1/
+ -   node_modules
+ -   package.json
+ - service2/
+ -   node_modules
+ -   package.json
+```
+- provides an interface for publishing to npm, tagging in git, and semantic version control
+---
+name: lerna
+### Lerna commands
+.large[
+```sh
+# Bootstrap the packages in the current Lerna repo.
+# Installing all their dependencies and linking any cross-dependencies.
+
+> lerna bootstrap
+```
+]
+.large[
+```sh
+# Create a new release of the packages that have been updated.
+# Prompts for a new version and updates all the packages on git and npm.
+
+> lerna publish
+
+lerna info version 2.0.0-rc.4
+lerna info current version undefined
+lerna info Checking for updated packages...
+lerna info Comparing with tag v0.0.3-b
+? Select a new version (currently undefined) (Use arrow keys)
+❯ Patch (null)
+...
+Changes:
+ - @my_company/service1: 1.0.3 => 1.0.4
+ - @my_company/service2: 1.0.3 => 1.0.4
+ - @my_company/shared_package: 1.0.3 => 1.0.4
+? Are you sure you want to publish the above changes? (ynH)
+```
+]
+---
+name: todo
 ## TODO
 
 - create an architecture diagram
 - show how the different services are used (who consumes them)
+- Client apis. Need multiple paths… base level REST apis (for CMS) and high availability BFF apis (Backends for Frontends) Sam Newman
 
+---
+class: middle, center
+## Questions?
+
+brian.deboer@fox.com
     </textarea>
     <script src="https://remarkjs.com/downloads/remark-latest.min.js">
     </script>
     <script>
-      var slideshow = remark.create();
+      var slideshow = remark.create({
+        // Set the slideshow display ratio
+        // Default: '4:3'
+        // Alternatives: '16:9', ...
+        ratio: '16:9',
+        highlightStyle: 'solarized-light',
+        highlightSpans: true,
+        // Navigation options
+        navigation: {
+          // Enable or disable navigating using scroll
+          // Default: true
+          // Alternatives: false
+          scroll: false,
+
+          // Enable or disable navigation using touch
+          // Default: true
+          // Alternatives: false
+          touch: false,
+
+          // Enable or disable navigation using click
+          // Default: false
+          // Alternatives: true
+          click: false,
+        }
+      });
     </script>
   </body>
 </html>
