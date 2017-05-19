@@ -84,7 +84,7 @@ class: center, middle
 ]
 
 ---
-# Who is FOX DCG
+## Who is FOX DCG?
 .row[
 .col[.image[
 ![Fox](images/fox-logo.png)
@@ -111,30 +111,23 @@ class: center, middle
 - Background as a full stack developer.
 
 ---
-name: goals0
-### Goals
-
-#### Microservices have to follow a set of rules and structures to be succesful
-- Microservices have to know how to communicate with one another. Having a standard API format is crucial.
-
-- Microservices have to know how to find each other.
-
-- They have to be aware that they may have more than one consumer.
-
----
 name: goals1
 ### Goals
 
 #### Content/Data management (CMS) needs to be based on the same services as the client apps.
+ - Try to put as much business logic into the back-end services so that we don't replicate business logic on
+every platform.
+
+ - Need to have different layers of APIs. General apis and BFF (Backends for Frontends) apis. 
+
  - Client (iOS/Android app/etc...) always sees the same thing as the editor in the CMS.
  So CMS is really just a React/Redux front end for the same services that the client app uses.
 
- - Data can be sourced can be from a variety of places, each with different levels of quality or rules.
+ - Data can be sourced from a variety of places, each with different levels of quality or rules.
  So we need a way to translate or update the content before it is used.
 
  - Ability to override a single field on any platform but still inherit other fields.
 
- - Need to have different layers of APIs. General apis and BFF (Backends for Frontends) apis.
 ---
 name: goals2
 ### Goals
@@ -283,6 +276,49 @@ name: goals3
  - Reuse code when possible, but not at the expense of keeping separation of services.
 
 ---
+name: microservices
+### Microservices
+#### Why use microservices
+ - Easier to keep up with product requests when you can change or deploy a single service only. Or upgrade only
+ one service to a new version.
+
+ - Easier for teams to work independently.
+
+ - You can leverage different environment vars and/or different versions at the same time to deploy services
+ for different purposes.
+
+ - Each service can receive a different load and scale.
+
+---
+### Challenges
+ - Microservices have to know how to communicate with one another.
+
+ - Deployment of services and managing the instances be a headache.
+ How do you ensure that everyone on the team can run the services the same way?
+
+ - Code becomes difficult to manage when you have lots of services and you want to share some dependencies.
+
+ - Important to be aware that your services may have more than one consumer. There can be many routes to the service.
+
+ - Microservices have to know how to find each other.
+
+---
+### Challenges
+ - Microservices have to know how to communicate with one another.
+##### Use a standard API format and swagger spec.
+
+ - Deployment of services and managing the instances be a headache. How do you ensure that everyone on the team can run the services the same way?
+##### Docker
+
+ - Code becomes difficult to manage when you have lots of services and you want to share some dependencies.
+##### Lerna
+
+ - Important to be aware that your services may have more than one consumer. There can be many routes to the service.
+##### Terraform
+
+ - Microservices have to know how to find each other.
+##### Consul
+---
 name: docker
 .left-column[.image[![Docker](images/docker-logo.png)]]
 .right-column[
@@ -378,7 +414,7 @@ services:
 name: lambda
 ### Why not use Lambda?
 
- - It is the future.
+ - It is the _future_.
 
  - We still like to have visibility and full control of the application.
 
