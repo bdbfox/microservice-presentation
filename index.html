@@ -36,6 +36,9 @@
       .left-column h4:last-of-type, .left-column h4:last-child {
         color: #000;
       }
+      .footnote {
+        font-size: 12px;
+      }
 
       .right-column {
         width: 75%;
@@ -107,11 +110,6 @@ class: center, middle
 
 - Background as a full stack developer.
 
-
----
-class: center, middle
-## docker !== microservices
-#### Docker is a piece of our microservice puzzle
 ---
 name: goals0
 ### Goals
@@ -121,7 +119,7 @@ name: goals0
 
 - Microservices have to know how to find each other.
 
-- Have to be aware that more they may have more than one consumer.
+- They have to be aware that they may have more than one consumer.
 
 ---
 name: goals1
@@ -137,8 +135,6 @@ name: goals1
  - Ability to override a single field on any platform but still inherit other fields.
 
  - Need to have different layers of APIs. General apis and BFF (Backends for Frontends) apis.
----
-## TODO: insert diagram here
 ---
 name: goals2
 ### Goals
@@ -738,12 +734,26 @@ data "template_file" "service_env_vars" {
 ---
 .image.center[![Consul web](images/consul-screenshot.png)]
 ---
-name: todo
-## TODO
+### Pulling it all together
 
-- create an architecture diagram
-- show how the different services are used (who consumes them)
-- Client apis. Need multiple paths… base level REST apis (for CMS) and high availability BFF apis (Backends for Frontends) Sam Newman
+#### Our apis and services all really have three main customers/consumers
+- Our other micro services and content indexers
+  - Use Consul as the DNS to find healthly services
+  - Use a hystrix pattern to request data and to protect services
+  - Put microservices on a private subnet in a VPC
+
+- The CMS - it's just a front end for our APIs
+  - Use a application load balancer (ALB) on a public subnet to distribute the routing to the
+  appropriate services as the CMS client expects them.
+  - Because it's for internal purposes we can more easily use a AWS and an ALB to restrict the security group and access.
+
+- External clients - iOS, Android, web, etc...
+ - Use a different application load balancer which is more restrictive.
+ - Use API Gateway to easily route, version control, throttle, cache, limit requests
+ - Client apis need to have multiple paths. Base level REST apis are great for some applications (like the CMS), but specialized
+BFF* apis (Backends for Frontends)
+
+.footnote[*BFF is a concept coined by Sam Newman http://samnewman.io/patterns/architectural/bff/ ]
 ---
 class: middle, center
 ## Questions?
