@@ -501,13 +501,189 @@ Changes:
 ```
 ]
 ---
+name: terraform
+.left-column[.image[![Terraform](images/terraform-logo.png)]]
+.right-column[
+### Terraform
+- Infrastructure as code. Essentially a "developer" friendly version of managing infrastructure.
+
+- Because it is "code", you can use all the same tools as you would for development - linting, testing,
+CI/CD, collaboration, code reviews, change requests, change tracking, automation, etc...
+
+- Supports a "dry-run" to tell you in advance what will change.
+
+- Supports saving state remotely in s3 and locking to prevent multiple people changing the infrastructure at the same time.
+
+- Has support for variables (and some functions) so you can easily stamp out environments for QA, Staging, Production.
+
+- You can even spin up one-off environments, so that a developer can test all of their changes in a separate environment.
+
+- Supports modules to break infrastucture into components, ie. network, services, etc...
+
+- Cloud agnostic. Use for AWS, Azure, Google Cloud, etc...
+]
+---
+name: terraform-samples-1
+##### sample launch configuration and autoscaling group
+```yml
+data "template_file" "service_cluster_user_data" {
+  template = "${file("${path.module}/../../templates/service.tpl")}"
+  vars {
+    clustername = "${aws_ecs_cluster.service_cluster.name}"
+  }
+}
+
+//  Launch configuration for the service cluster auto-scaling group.
+resource "aws_launch_configuration" "service_cluster_lc" {
+  name_prefix = "service-node-"
+  image_id = "${lookup(var.ami_ecs_optimised, var.region)}"
+  instance_type = "${var.instance_type}"
+  user_data = "${data.template_file.service_cluster_user_data.rendered}"
+  iam_instance_profile = "${aws_iam_instance_profile.service_cluster_instance_profile.id}"
+  security_groups = [
+    "${var.vpc_sg}",
+    "${var.public_web_sg}",
+    "${var.public_ssh_sg}",
+  ]
+  lifecycle {
+      create_before_destroy = true
+  }
+  key_name = "${var.keypair}"
+}
+
+//  Auto-scaling group for our cluster.
+resource "aws_autoscaling_group" "service_cluster_asg" {
+  name = "service-cluster-asg"
+  launch_configuration = "${aws_launch_configuration.service_cluster_lc.name}"
+  min_size = 3
+  max_size = 3
+  vpc_zone_identifier = ["${split(",", var.private_subnets)}"]
+  lifecycle {
+      create_before_destroy = true
+  }
+  tag {
+    key = "Project"
+    value = "my-services"
+    propagate_at_launch = true
+  }
+}
+```
+---
+##### sample user data
+```sh
+#!/bin/bash
+
+cat >/etc/ecs/ecs.config <<FINISH
+ECS_CLUSTER=${clustername}
+FINISH
+
+yum -y update
+
+# Get my IP
+IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+
+# start docker for consul agent
+docker run -d --net=host --name=consulagent \
+  consul agent \
+  -bind=$IP \
+  -client=0.0.0.0 \
+  -datacenter=dc0 \
+  -retry-join-ec2-tag-key=aws:autoscaling:groupName \
+  -retry-join-ec2-tag-value=consul-cluster-asg
+
+# start docker for registrator
+docker run -d --net=host \
+  --name=registrator \
+  --volume=/var/run/docker.sock:/tmp/docker.sock \
+  gliderlabs/registrator:latest \
+  consul://localhost:8500
+```
+---
+##### service definition
+```yml
+data "template_file" "service_task_definition" {
+  template = "${file("${path.module}/../../tasks/${var.env_name}/generic_service.json")}"
+
+  vars {
+    service_name  = "${var.service_name}"
+    env_name      = "${var.env_name}"
+    region        = "${var.region}"
+    image_name    = "${var.image_name}"
+    image_tag     = "${var.image_tag}"
+    log_group     = "${aws_cloudwatch_log_group.service_log.name}"
+    env_vars      = "${data.template_file.service_env_vars.rendered}"
+    draft_port    = "${var.port_base}"
+    publish_port  = "${var.port_base + 1}"
+  }
+}
+
+resource "aws_ecs_task_definition" "service_definition" {
+  family                = "${var.env_name}-service-${var.service_name}"
+  network_mode          = "host"
+  container_definitions = "${data.template_file.service_task_definition.rendered}"
+}
+
+resource "aws_cloudwatch_log_group" "service_log" {
+  name = "docker-${var.env_name}-service-${var.service_name}-log"
+}
+
+resource "aws_ecs_service" "service_server" {
+  name            = "${var.env_name}-service-${var.service_name}"
+  cluster         = "${var.service_cluster}"
+  task_definition = "${aws_ecs_task_definition.service_definition.arn}"
+  desired_count   = "${var.desired_count}"
+}
+```
+---
+##### sample service
+```yml
+module "build_service1" {
+  source            = "../modules/codebuild"
+  region            = "${var.region}"
+  env_name          = "${var.env_name}"
+  service_name      = "service1"
+  repository_name   = "service-service1"
+  build_role        = "${var.build_role}"
+  project_name      = "${var.project_name}"
+  account_id        = "${var.account_id}"
+  source_location   = "https://github.com/foxbroadcasting/dcgapi-services.git"
+}
+
+module "dcgapi_service_service1" {
+  # CHANGE THIS PART TO CONTROL THE VERSION NUMBER
+  image_tag = "v1.0.4"
+
+  # CHANGE THESE IF SETTING UP A NEW SERVICE
+  port_base               = 8002 // we just need the base port (draft mode)
+  service_name            = "service1" // the name of the service
+  desired_count           = 3 // how many tasks do you want to run
+  image_name              = "${module.build_service1.repository_url}" // just change to match the build name above
+  service_tags            = ["servicepath1", "servicepath2"]
+
+  # default values will work for most services
+  source                  = "../modules/service"
+  region                  = "${var.region}"
+  env_name                = "${var.env_name}"
+  service_cluster         = "${var.service_cluster}"
+  service_cluster_asg     = "${var.service_cluster_asg}"
+  vpc_id                  = "${var.vpc_id}"
+  consul_cluster          = "${var.consul_cluster}"
+  listener_arn            = "${aws_alb_listener.front_end.arn}"
+  load_balancer_dns       = "${aws_alb.service_alb.dns_name}"
+
+  # ENVIRONMENT VARS - shouldn't need to change either
+  API_BASE_PATH           = "${var.service_name}/_${var.env_name}_v3"
+  NODE_ENV                = "${var.env_name}"
+  ...
+}
+```
+---
 name: todo
 ## TODO
 
 - create an architecture diagram
 - show how the different services are used (who consumes them)
 - Client apis. Need multiple paths… base level REST apis (for CMS) and high availability BFF apis (Backends for Frontends) Sam Newman
-
 ---
 class: middle, center
 ## Questions?
