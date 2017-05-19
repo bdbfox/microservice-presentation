@@ -24,7 +24,8 @@
       .image img { width: 100%; height: auto; }
       .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
 
-      .fox-image img { width: 60%; height: auto }
+      .medium-image img { width: 70%; height: auto; }
+      .fox-image img { width: 60%; height: auto; }
       /* Two-column layout */
       .left-column {
         color: #777;
@@ -671,12 +672,71 @@ module "dcgapi_service_service1" {
   listener_arn            = "${aws_alb_listener.front_end.arn}"
   load_balancer_dns       = "${aws_alb.service_alb.dns_name}"
 
-  # ENVIRONMENT VARS - shouldn't need to change either
+  # ENVIRONMENT VARS - shouldnt need to change either
   API_BASE_PATH           = "${var.service_name}/_${var.env_name}_v3"
   NODE_ENV                = "${var.env_name}"
   ...
 }
 ```
+---
+name: consul
+.left-column[.image[![Terraform](images/consul-logo.png)]]
+.right-column[
+### Consul
+- High availability service registry and discovery.
+
+- Provides a DNS interface for services to ask for a microservice by name and port.
+
+- Service discovery supports health checks to route requests to healthy hosts.
+
+- Leverage tags to search for services by name or tags.
+
+- Registrator automatically discovers ports that are being used in a docker container and registers them to consul
+
+- SERVICE_TAGS and SERVICE_NAME environment fields automatically name/tag the fields in consul
+]
+---
+#### service definition
+```yml
+module "dcgapi_service_service1" {
+  ...
+  service_name            = "service1" // the name of the service
+  service_tags            = ["servicepath1", "servicepath2"]
+  ...
+}
+
+data "template_file" "service_env_vars" {
+  template = "${file("${path.module}/../../templates/service_env_vars.tpl")}"
+
+  vars {
+    draft_port    = "${var.port_base}"
+    publish_port  = "${var.port_base + 1}"
+    SERVICE_NAME  = "${var.service_name}"
+    SERVICE_TAGS  = "${join(",", var.service_tags)}"
+  }
+}
+```
+#### Env vars template
+```json
+[{
+  "name": "SERVICE_NAME",
+  "value": "${SERVICE_NAME}"
+},
+{
+  "name": "SERVICE_${draft_port}_NAME",
+  "value": "${SERVICE_NAME}_draft"
+},
+{
+  "name": "SERVICE_${publish_port}_NAME",
+  "value": "${SERVICE_NAME}_published"
+},
+{
+  "name": "SERVICE_TAGS",
+  "value": "${SERVICE_TAGS}"
+}]
+```
+---
+.image.center[![Consul web](images/consul-screenshot.png)]
 ---
 name: todo
 ## TODO
